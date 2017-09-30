@@ -1,0 +1,88 @@
+package basic
+
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.mllib.classification.{LogisticRegressionWithLBFGS}
+import org.apache.spark.mllib.feature.HashingTF
+import org.apache.spark.mllib.regression.LabeledPoint
+import org.apache.spark.{SparkConf, SparkContext}
+
+/**
+  * Created by XieFeng on 2017/9/29.
+  */
+object LogisticRegression {
+  def main(args: Array[String]): Unit = {
+    Logger.getRootLogger.setLevel(Level.WARN)
+    Logger.getLogger("org.apache.spark").setLevel(Level.WARN)
+
+    val conf = new SparkConf().setAppName("LogisticRegression").setMaster("local[4]")
+
+    val sc = new SparkContext(conf)
+
+    val noraml = sc.textFile("H:/DeepLeaning_test/normal.txt")
+
+    val spam = sc.textFile("H:/DeepLeaning_test/spam.txt")
+
+    //设置特征向量个数
+    val hashTf = new HashingTF(numFeatures = 25000)
+
+    //将正常邮件内容转换为特征向量
+    val normalFeatures = noraml.map(email=>hashTf.transform(email.split(" ")))
+
+    //将垃圾邮件内容转换为特征向量
+    val spamFeatures = spam.map(email=>hashTf.transform(email.split(" ")))
+
+
+    normalFeatures.collect().foreach(x=>print(x+","))
+
+    spamFeatures.collect().foreach(x=>print(x+","))
+
+    //将正常邮件及错误邮件特征向量转换为LabelPoint
+    val normalData = normalFeatures.map(features=>LabeledPoint(0,features))
+
+    val spamData = spamFeatures.map(features=>LabeledPoint(1,features))
+
+    val trainingData = normalData.union(spamData)
+    //将训练数据进行缓存
+    trainingData.cache()
+
+    //使用LBFGS逻辑回归训练数据以产生数据模型
+    val lrLearner = new LogisticRegressionWithLBFGS()
+
+    val model = lrLearner.run(trainingData)
+
+    val spamTestOne = hashTf.transform("O M G GET cheap stuff by sending money to ...".split(" "))
+
+    val normalOne = hashTf.transform("Hi Dad, I started studying Spark the other ...".split(" "))
+
+    val normalTwo = hashTf.transform("I really wish well to all my friends.".split(" "))
+
+    val spamTwo = hashTf.transform("He stretched into his packet for some money.".split(" "))
+
+    val spamThree = hashTf.transform("He entrusted his money to me.".split(" "))
+
+    val spamFourth = hashTf.transform("Where do you keep your money?".split(" "))
+
+    val spamFive = hashTf.transform("She borrowed some money of me.".split(" "))
+
+    val normalThree = hashTf.transform("Hi Dear.I studying to be a friends".split(" "))
+
+    printf(s"spamTestOne test reuslt: ${model.predict(spamTestOne)} \n")
+
+    printf(s"normalTestOne test result: ${model.predict(normalOne)} \n")
+
+    printf(s"normalTestTwo test result: ${model.predict(normalTwo)} \n")
+
+    printf(s"spamTestTwo test result: ${model.predict(spamTwo)} \n")
+
+    printf(s"spamTestThree test result: ${model.predict(spamThree)} \n")
+
+    printf(s"spamTestFourth test result: ${model.predict(spamFourth)} \n")
+
+    printf(s"spamTestFivth test result: ${model.predict(spamFive)} \n")
+
+    printf(s"normalTestThree test result: ${model.predict(normalThree)} \n")
+
+
+    sc.stop()
+  }
+}
